@@ -18,6 +18,10 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+
+<!-- Real backend: Supabase client + your project keys -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
 <style>
   :root{
     --bg:#F6F4EF;
@@ -359,6 +363,12 @@
 
   .note-caption{text-align:center; font-size:12px; color:var(--ink-faint); margin-top:14px; max-width:390px;}
 
+  /* Login */
+  .login-wrap{flex:1; display:flex; flex-direction:column; justify-content:center; padding:32px;}
+  .login-headline{font-family:'Space Grotesk'; font-weight:700; font-size:26px; margin:20px 0 6px 0;}
+  .login-sub{font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:26px;}
+  .banner{background:var(--amber-soft); color:#8A5E12; border-radius:var(--r-m); padding:12px 14px; font-size:12.5px; line-height:1.5; margin:0 20px 14px 20px;}
+
   /* When installed/launched as a standalone app: drop the decorative phone bezel and fill the real screen */
   @media (display-mode: standalone), (display-mode: fullscreen){
     body{padding:0; align-items:stretch;}
@@ -402,8 +412,27 @@ const ICONS = {
   note: `<svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M6 4h9l4 4v12H6V4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12h6M9 15.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
 };
 
+/* ---------------- BACKEND (Supabase) ---------------- */
+const backendConfigured = !!(window.MOTION_CONFIG &&
+  window.MOTION_CONFIG.SUPABASE_URL &&
+  !window.MOTION_CONFIG.SUPABASE_URL.includes('PASTE_YOUR') &&
+  window.MOTION_CONFIG.SUPABASE_ANON_KEY &&
+  !window.MOTION_CONFIG.SUPABASE_ANON_KEY.includes('PASTE_YOUR'));
+
+let sb = null;
+if(backendConfigured){
+  try{
+    sb = supabase.createClient(window.MOTION_CONFIG.SUPABASE_URL, window.MOTION_CONFIG.SUPABASE_ANON_KEY);
+  } catch(e){
+    console.error('Could not connect to backend:', e);
+  }
+}
+
 /* ---------------- STATE ---------------- */
 const state = {
+  session: null,
+  authEmail: '',
+  authMessage: '',
   screen: 'home',
   presetType: null,
   requestText: '',
@@ -539,16 +568,28 @@ const actions = {
   pay(){
     state.screen = 'processingPayment';
     render();
-    setTimeout(() => {
-      const id = 'MOT-' + (10000 + Math.floor(Math.random() * 89000));
-      state.orderId = id;
-      state.orders.unshift({
-        id, status:'active', createdLabel:'Just now',
-        tasks: state.tasks, breakdown: state.breakdown, total: state.total, deadline: state.deadline,
-        eta: 'Arriving ' + state.deadline.replace('Before ', 'before '),
-        store: (state.tasks.find(t=>t.title==='Grocery shopping')||{}).subtitle || null,
-        currentIndex: 0,
-      });
+    setTimeout(async () => {
+      const orderData = { tasks: state.tasks, breakdown: state.breakdown, total: state.total, deadline: state.deadline };
+
+      if(sb && state.session){
+        const saved = await saveOrder(orderData);
+        if(saved){
+          state.orderId = saved.id;
+          await loadOrders();
+        } else {
+          state.orderId = 'MOT-' + (10000 + Math.floor(Math.random() * 89000));
+        }
+      } else {
+        const id = 'MOT-' + (10000 + Math.floor(Math.random() * 89000));
+        state.orderId = id;
+        state.orders.unshift({
+          id, status:'active', createdLabel:'Just now',
+          tasks: state.tasks, breakdown: state.breakdown, total: state.total, deadline: state.deadline,
+          eta: 'Arriving ' + state.deadline.replace('Before ', 'before '),
+          store: (state.tasks.find(t=>t.title==='Grocery shopping')||{}).subtitle || null,
+          currentIndex: 0,
+        });
+      }
       state.screen = 'success';
       render();
     }, 1400);
@@ -570,6 +611,29 @@ const actions = {
   contactRider(){ showToast('Calling Daniel…'); },
   getHelp(){ showToast('Connecting you to MOTION support…'); },
   createFromEmpty(){ state.screen = 'home'; render(); setTimeout(()=>document.getElementById('requestInput')?.focus(), 300); },
+
+  updateEmail(){ /* handled via input listener below */ },
+  async sendMagicLink(){
+    if(!sb){ showToast('Backend not connected yet.'); return; }
+    const input = document.getElementById('emailInput');
+    const email = (input ? input.value : '').trim();
+    if(!email || !email.includes('@')){ showToast('Enter a valid email first.'); return; }
+    state.authEmail = email;
+    state.authMessage = 'Sending link…';
+    render();
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href }
+    });
+    state.authMessage = error ? ('Something went wrong: ' + error.message) : `Check ${email} for a sign-in link.`;
+    render();
+  },
+  async logout(){
+    if(sb) await sb.auth.signOut();
+    state.session = null;
+    state.screen = 'login';
+    render();
+  },
 };
 
 /* ---------------- SCREENS ---------------- */
@@ -577,6 +641,7 @@ function screenHome(){
   const active = state.orders.find(o => o.status === 'active');
   return `
   <div class="screen">
+    ${!backendConfigured ? `<div class="banner" style="margin-top:14px;">Demo mode — orders won't be saved. Connect a backend in config.js to make this real.</div>` : ''}
     <div class="pad">
       <div class="brandrow">
         <div>
@@ -786,12 +851,18 @@ function screenProfile(){
     </div>
     <div class="content" style="padding-top:0;">
       <div class="profile-head">
-        <div class="profile-avatar">A</div>
+        <div class="profile-avatar">${(state.session?.user?.email || 'A')[0].toUpperCase()}</div>
         <div>
-          <div class="profile-name">Ada Okonkwo</div>
-          <div class="profile-sub">+234 801 234 5678 · ada@email.com</div>
+          <div class="profile-name">${state.session ? 'Signed in' : 'Ada Okonkwo (demo)'}</div>
+          <div class="profile-sub">${state.session?.user?.email || 'Not connected to a real account'}</div>
         </div>
       </div>
+      ${state.session ? `
+      <div class="settings-group">
+        <div class="card" style="padding:0 16px;">
+          <div class="settings-row" data-action="logout" style="color:var(--coral);">Log out ${ICONS.arrow}</div>
+        </div>
+      </div>` : ''}
       <div class="settings-group">
         <div class="settings-label">Account</div>
         <div class="card" style="padding:0 16px;">
@@ -804,6 +875,22 @@ function screenProfile(){
           ${rows2.map(r => `<div class="settings-row" data-action="toast" data-msg="${r} — coming soon in this prototype.">${r} ${ICONS.arrow}</div>`).join('')}
         </div>
       </div>
+    </div>
+  </div>`;
+}
+
+function screenLogin(){
+  return `
+  <div class="screen">
+    <div class="login-wrap">
+      <div class="logo">MOTION</div>
+      <div class="login-headline">Keep Life Moving.</div>
+      <div class="login-sub">Enter your email — we'll send you a link to sign in. No password needed.</div>
+      <div class="field" style="margin-bottom:14px;">
+        <input id="emailInput" type="email" placeholder="you@email.com" value="${escapeHtml(state.authEmail)}" />
+      </div>
+      <button class="btn btn-coral" data-action="sendMagicLink">Send sign-in link</button>
+      ${state.authMessage ? `<div style="text-align:center; font-size:12.5px; color:var(--ink-soft); margin-top:14px;">${escapeHtml(state.authMessage)}</div>` : ''}
     </div>
   </div>`;
 }
@@ -1050,11 +1137,84 @@ function escapeHtml(str){
 }
 
 const SCREENS = {
+  login: screenLogin,
   home: screenHome, explore: screenExplore, orders: screenOrders, wallet: screenWallet, profile: screenProfile,
   create: screenCreate, interpreting: screenInterpreting, interpretation: screenInterpretation,
   quote: screenQuote, payment: screenPayment, processingPayment: screenProcessingPayment,
   success: screenSuccess, tracking: screenTracking,
 };
+
+/* ---------------- REAL BACKEND: load & save orders ---------------- */
+function formatDateLabel(iso){
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / (1000*60*60*24));
+  if(diffDays <= 0) return 'Today';
+  if(diffDays === 1) return 'Yesterday';
+  if(diffDays < 7) return diffDays + ' days ago';
+  return 'Last week';
+}
+function emojiForTasks(tasks){
+  if(!tasks || !tasks[0]) return '✅';
+  return tasks[0].icon || '✅';
+}
+
+async function loadOrders(){
+  if(!sb || !state.session) return;
+  const { data, error } = await sb
+    .from('orders')
+    .select('*')
+    .eq('user_id', state.session.user.id)
+    .order('created_at', { ascending: false });
+  if(error){ showToast('Could not load orders: ' + error.message); return; }
+
+  state.orders = (data || []).filter(r => r.status === 'active').map(r => ({
+    id: r.id, status: 'active', createdLabel: formatDateLabel(r.created_at),
+    tasks: r.tasks, breakdown: r.breakdown, total: r.total, deadline: r.deadline,
+    eta: 'Arriving ' + (r.deadline || 'soon').toLowerCase(),
+    store: (r.tasks || []).find(t => t.title === 'Grocery shopping')?.subtitle || null,
+    currentIndex: 0,
+  }));
+
+  state.completedOrders = (data || []).filter(r => r.status === 'completed').map(r => ({
+    id: r.id, type: (r.tasks && r.tasks[0]?.title) || 'Request',
+    date: formatDateLabel(r.created_at), amount: r.total, emoji: emojiForTasks(r.tasks),
+  }));
+
+  render();
+}
+
+async function saveOrder(order){
+  if(!sb || !state.session) return null;
+  const { data, error } = await sb.from('orders').insert({
+    user_id: state.session.user.id,
+    request_text: state.requestText,
+    address: state.address,
+    tasks: order.tasks, breakdown: order.breakdown, total: order.total, deadline: order.deadline,
+    status: 'active',
+  }).select().single();
+  if(error){ showToast('Could not save order: ' + error.message); return null; }
+  return data;
+}
+
+async function initAuth(){
+  const { data } = await sb.auth.getSession();
+  state.session = data.session;
+  if(!state.session){ state.screen = 'login'; }
+  render();
+  if(state.session) loadOrders();
+
+  sb.auth.onAuthStateChange((event, session) => {
+    state.session = session;
+    if(session){
+      if(state.screen === 'login') state.screen = 'home';
+      loadOrders();
+    } else {
+      state.screen = 'login';
+      render();
+    }
+  });
+}
 
 function render(){
   const app = document.getElementById('app');
@@ -1063,6 +1223,10 @@ function render(){
   const ta = document.getElementById('requestInput');
   if(ta){
     ta.addEventListener('input', () => { state.requestText = ta.value; });
+  }
+  const emailInput = document.getElementById('emailInput');
+  if(emailInput){
+    emailInput.addEventListener('input', () => { state.authEmail = emailInput.value; });
   }
 }
 
@@ -1075,7 +1239,11 @@ document.getElementById('app').addEventListener('click', (e) => {
   if(actions[action]) actions[action](arg);
 });
 
-render();
+if(sb){
+  initAuth();
+} else {
+  render();
+}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
