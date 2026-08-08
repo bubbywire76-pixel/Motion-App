@@ -1,0 +1,12 @@
+{
+  "appId": "com.motion.app",
+  "appName": "MOTION",
+  "webDir": ".",
+  "backgroundColor": "#1B1B20",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always"
+  }
+}
