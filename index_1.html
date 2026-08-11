@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>MOTION — Keep Life Moving.</title>
+<meta name="description" content="Tell MOTION what you need. We'll handle the rest." />
+
+<!-- PWA / installability -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#1B1B20" />
+<link rel="icon" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-apple.png" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="MOTION" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+
+<!-- Real backend: Supabase client + your project keys -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.js"></script>
+<script>
+  // Detect native app shell (Capacitor on Android/iOS) so we can drop the
+  // decorative browser-preview phone frame and show a real full-screen app.
+  if (window.Capacitor) {
+    document.documentElement.classList.add('native-app');
+  }
+</script>
+<style>
+  :root{
+    --bg:#F6F4EF;
+    --surface:#FFFFFF;
+    --border:#E8E3DA;
+    --ink:#1B1B20;
+    --ink-soft:#6E6B63;
+    --ink-faint:#A7A29A;
+    --coral:#FF5A36;
+    --coral-soft:#FFE4DB;
+    --pine:#1B4B43;
+    --pine-soft:#DCEAE5;
+    --amber:#B9791F;
+    --amber-soft:#FBEBD2;
+    --r-s:10px; --r-m:16px; --r-l:24px; --r-xl:32px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:#EDEAE2;
+    font-family:'Inter',sans-serif;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    display:flex;
+    justify-content:center;
+    padding:28px 12px;
+    min-height:100vh;
+  }
+  .display{font-family:'Space Grotesk',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace; letter-spacing:0.01em;}
+
+  .device{
+    width:390px;
+    max-width:100%;
+    border-radius:40px;
+    background:#0D0D10;
+    padding:10px;
+    box-shadow:0 30px 60px -20px rgba(20,18,14,0.35), 0 2px 8px rgba(20,18,14,0.12);
+  }
+  .phone{
+    width:100%;
+    height:844px;
+    max-height:88vh;
+    background:var(--bg);
+    border-radius:32px;
+    overflow:hidden;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+  }
+  .statusbar{
+    height:30px;
+    flex:0 0 auto;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 22px;
+    font-size:12px;
+    font-weight:600;
+    color:var(--ink);
+  }
+  #app{
+    flex:1 1 auto;
+    overflow-y:auto;
+    position:relative;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  #app::-webkit-scrollbar{display:none;}
+
+  .screen{
+    min-height:100%;
+    display:flex;
+    flex-direction:column;
+    animation:fadeIn .28s ease;
+  }
+  @keyframes fadeIn{from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);}}
+
+  .pad{padding:20px 20px 0 20px;}
+  .content{flex:1 1 auto; padding:0 20px 24px 20px;}
+
+  /* Top bar with back button */
+  .topbar{
+    display:flex; align-items:center; gap:12px;
+    padding:14px 20px 4px 20px;
+  }
+  .backbtn{
+    width:36px; height:36px; border-radius:50%;
+    background:var(--surface); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; flex:0 0 auto;
+  }
+  .backbtn:active{transform:scale(0.92);}
+  .topbar-title{font-family:'Space Grotesk'; font-weight:600; font-size:17px;}
+
+  /* Buttons */
+  .btn{
+    border:none; border-radius:100px; font-family:'Inter'; font-weight:600;
+    font-size:15px; padding:15px 20px; cursor:pointer; width:100%;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    transition:transform .12s ease, opacity .12s ease;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-coral{background:var(--coral); color:#fff;}
+  .btn-ghost{background:transparent; color:var(--ink); border:1.5px solid var(--border);}
+  .btn-sm{padding:10px 16px; font-size:13px; width:auto;}
+  .btn[disabled]{opacity:.4; pointer-events:none;}
+
+  /* Cards */
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--r-l);
+    padding:18px;
+  }
+
+  .badge{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:100px;
+    text-transform:uppercase; letter-spacing:.03em;
+  }
+  .badge--pine{background:var(--pine-soft); color:var(--pine);}
+  .badge--amber{background:var(--amber-soft); color:var(--amber);}
+  .badge--coral{background:var(--coral-soft); color:var(--coral);}
+  .badge--muted{background:#EFEDE7; color:var(--ink-soft);}
+
+  .dot{width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block;}
+
+  /* Home */
+  .brandrow{display:flex; align-items:center; justify-content:space-between;}
+  .logo{font-family:'Space Grotesk'; font-weight:700; font-size:20px; letter-spacing:-0.01em;}
+  .tagline{font-size:11px; color:var(--ink-faint); font-weight:500; margin-top:1px;}
+  .avatar{width:34px; height:34px; border-radius:50%; background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:600; font-family:'Space Grotesk';}
+
+  .greet{font-size:13px; color:var(--ink-soft); margin:22px 0 4px 0;}
+  .headline{font-family:'Space Grotesk'; font-weight:600; font-size:24px; line-height:1.25; margin:0 0 18px 0;}
+
+  .composer{
+    background:var(--ink); border-radius:var(--r-xl); padding:20px;
+    position:relative; overflow:hidden;
+  }
+  .composer textarea{
+    width:100%; background:transparent; border:none; outline:none; resize:none;
+    color:#fff; font-family:'Inter'; font-size:15.5px; line-height:1.45; min-height:64px;
+  }
+  .composer textarea::placeholder{color:rgba(255,255,255,0.4);}
+  .composer .hint{font-size:12px; color:rgba(255,255,255,0.38); margin-top:2px; line-height:1.4;}
+  .composer-footer{display:flex; align-items:center; justify-content:space-between; margin-top:14px;}
+  .mic{
+    width:38px; height:38px; border-radius:50%; background:rgba(255,255,255,0.08);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto;
+  }
+  .composer-cta{
+    background:var(--coral); color:#fff; border:none; border-radius:100px;
+    padding:11px 18px; font-weight:600; font-size:14px; display:flex; align-items:center; gap:6px; cursor:pointer;
+  }
+  .composer-cta:active{transform:scale(0.96);}
+
+  .section-title{font-family:'Space Grotesk'; font-weight:600; font-size:15px; margin:26px 0 12px 0; display:flex; align-items:center; justify-content:space-between;}
+  .section-title span.link{font-family:'Inter'; font-weight:600; font-size:12.5px; color:var(--ink-soft); cursor:pointer;}
+
+  .quick-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  .quick-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--r-m);
+    padding:14px 10px; text-align:left; cursor:pointer;
+  }
+  .quick-card:active{transform:scale(0.97);}
+  .quick-emoji{font-size:20px; margin-bottom:10px; display:block;}
+  .quick-title{font-weight:600; font-size:13px; line-height:1.25;}
+  .quick-sub{font-size:11px; color:var(--ink-faint); margin-top:3px; line-height:1.3;}
+
+  .active-card{margin-bottom:12px;}
+  .active-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .active-title{font-weight:600; font-size:15px;}
+  .progressbar{height:5px; background:#EFEDE7; border-radius:100px; overflow:hidden; margin:12px 0 10px 0;}
+  .progressbar > div{height:100%; background:var(--coral); border-radius:100px;}
+  .active-meta{font-size:12.5px; color:var(--ink-soft);}
+  .active-foot{display:flex; align-items:center; justify-content:space-between; margin-top:12px;}
+
+  .activity-row{display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); cursor:pointer;}
+  .activity-row:last-child{border-bottom:none;}
+  .activity-icon{width:36px; height:36px; border-radius:50%; background:#EFEDE7; display:flex; align-items:center; justify-content:center; font-size:15px; flex:0 0 auto;}
+  .activity-title{font-weight:600; font-size:13.5px;}
+  .activity-sub{font-size:11.5px; color:var(--ink-faint); margin-top:1px;}
+
+  /* Bottom nav */
+  .bottomnav{
+    flex:0 0 auto; display:flex; border-top:1px solid var(--border); background:var(--surface);
+    padding:10px 6px calc(10px + env(safe-area-inset-bottom,0px)) 6px;
+  }
+  .navitem{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;
+    color:var(--ink-faint); font-size:10.5px; font-weight:600; padding:4px 0;
+  }
+  .navitem.active{color:var(--ink);}
+  .navitem svg{width:21px; height:21px;}
+
+  /* Create request screen */
+  .field-label{font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:7px; text-transform:uppercase; letter-spacing:.03em;}
+  .field{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-m); padding:14px 16px; margin-bottom:14px;}
+  .field textarea{width:100%; border:none; outline:none; resize:none; font-family:'Inter'; font-size:15.5px; min-height:96px; background:transparent; color:var(--ink); line-height:1.5;}
+  .field textarea::placeholder{color:var(--ink-faint);}
+  .field input{width:100%; border:none; outline:none; font-family:'Inter'; font-size:14.5px; background:transparent; color:var(--ink);}
+  .field-row{display:flex; align-items:center; gap:10px;}
+  .field-icon{color:var(--ink-faint); flex:0 0 auto;}
+  .example-chip{
+    display:inline-block; font-size:12px; color:var(--ink-soft); background:#EFEDE7; border-radius:100px;
+    padding:7px 12px; margin-top:2px; cursor:pointer;
+  }
+
+  /* Interpreting / loader */
+  .loader-wrap{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:40px;}
+  .spinner{width:34px; height:34px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--coral); animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .loader-text{font-family:'Space Grotesk'; font-weight:600; font-size:15px; color:var(--ink-soft);}
+
+  /* Interpretation */
+  .task-line{display:flex; gap:14px; position:relative; padding-bottom:22px;}
+  .task-line:last-child{padding-bottom:0;}
+  .task-line .thread{position:absolute; left:17px; top:36px; bottom:0; width:2px; background:var(--border);}
+  .task-line:last-child .thread{display:none;}
+  .task-icon{
+    width:36px; height:36px; border-radius:50%; background:var(--surface); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:15px; flex:0 0 auto; z-index:1;
+  }
+  .task-body{padding-top:6px;}
+  .task-title{font-weight:600; font-size:14.5px;}
+  .task-sub{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+
+  .deadline-row{display:flex; align-items:center; gap:10px; background:var(--amber-soft); color:var(--amber); border-radius:var(--r-m); padding:12px 14px; margin-top:6px; font-size:13px; font-weight:600;}
+
+  .sticky-foot{
+    flex:0 0 auto; padding:14px 20px calc(16px + env(safe-area-inset-bottom,0px)) 20px;
+    background:linear-gradient(to top, var(--bg) 60%, rgba(246,244,239,0));
+    display:flex; flex-direction:column; gap:8px;
+  }
+
+  /* Quote */
+  .price-row{display:flex; align-items:center; justify-content:space-between; padding:10px 0; font-size:14.5px;}
+  .price-row .label{color:var(--ink-soft);}
+  .price-row .amt{font-family:'IBM Plex Mono'; font-weight:500;}
+  .hr{border:none; border-top:1px solid var(--border); margin:6px 0;}
+  .total-row{display:flex; align-items:center; justify-content:space-between; padding-top:14px;}
+  .total-row .label{font-family:'Space Grotesk'; font-weight:600; font-size:15px;}
+  .total-row .amt{font-family:'Space Grotesk'; font-weight:700; font-size:22px;}
+  .note{font-size:12px; color:var(--ink-faint); line-height:1.5; margin-top:16px;}
+
+  /* Payment */
+  .pay-option{display:flex; align-items:center; gap:14px; padding:15px; border:1.5px solid var(--border); border-radius:var(--r-m); margin-bottom:10px; cursor:pointer; background:var(--surface);}
+  .pay-option.selected{border-color:var(--ink); background:#FBFAF7;}
+  .pay-icon{width:38px; height:38px; border-radius:10px; background:#EFEDE7; display:flex; align-items:center; justify-content:center; font-size:16px; flex:0 0 auto;}
+  .pay-title{font-weight:600; font-size:14px;}
+  .pay-sub{font-size:12px; color:var(--ink-faint); margin-top:1px;}
+  .pay-radio{margin-left:auto; width:19px; height:19px; border-radius:50%; border:2px solid var(--border); flex:0 0 auto; position:relative;}
+  .pay-option.selected .pay-radio{border-color:var(--ink);}
+  .pay-option.selected .pay-radio::after{content:''; position:absolute; inset:3px; border-radius:50%; background:var(--ink);}
+
+  /* Success */
+  .success-wrap{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px;}
+  .check{
+    width:64px; height:64px; border-radius:50%; background:var(--pine); color:#fff;
+    display:flex; align-items:center; justify-content:center; margin-bottom:22px; animation:pop .4s ease;
+  }
+  @keyframes pop{0%{transform:scale(0.6); opacity:0;} 100%{transform:scale(1); opacity:1;}}
+  .success-headline{font-family:'Space Grotesk'; font-weight:700; font-size:23px; margin-bottom:8px;}
+  .success-sub{font-size:14px; color:var(--ink-soft); line-height:1.5; max-width:280px; margin-bottom:22px;}
+  .order-chip{background:var(--surface); border:1px solid var(--border); border-radius:var(--r-m); padding:14px 18px; margin-bottom:26px; width:100%;}
+
+  /* Tracking */
+  .map-area{
+    height:190px; border-radius:var(--r-l); background:
+      radial-gradient(circle at 30% 30%, #E4E0D4 0, #E4E0D4 40%, transparent 41%),
+      linear-gradient(135deg, #EAE6DA, #E1DCCC);
+    position:relative; overflow:hidden; border:1px solid var(--border);
+  }
+  .map-area svg{position:absolute; inset:0; width:100%; height:100%;}
+  .map-pin{position:absolute; width:30px; height:30px; border-radius:50% 50% 50% 0; background:var(--coral); transform:rotate(-45deg); top:40%; left:44%; box-shadow:0 4px 10px rgba(0,0,0,0.15);}
+
+  .timeline-item{display:flex; align-items:center; gap:12px; padding:9px 0;}
+  .tl-mark{width:18px; height:18px; border-radius:50%; flex:0 0 auto; display:flex; align-items:center; justify-content:center;}
+  .tl-mark.done{background:var(--pine);}
+  .tl-mark.current{background:var(--coral);}
+  .tl-mark.pending{background:transparent; border:2px solid var(--border);}
+  .tl-label{font-size:13.5px; font-weight:600;}
+  .tl-label.pending{color:var(--ink-faint); font-weight:500;}
+
+  .rider-card{display:flex; align-items:center; gap:12px; margin-top:6px;}
+  .rider-avatar{width:46px; height:46px; border-radius:50%; background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:600;}
+  .rider-name{font-weight:600; font-size:14.5px;}
+  .rider-meta{font-size:12px; color:var(--ink-soft); margin-top:1px;}
+
+  /* Explore */
+  .cat-card{display:flex; align-items:center; gap:14px; padding:16px; border:1px solid var(--border); border-radius:var(--r-m); background:var(--surface); margin-bottom:10px;}
+  .cat-card.soon{opacity:0.5;}
+  .cat-emoji{font-size:20px; width:40px; height:40px; border-radius:12px; background:#EFEDE7; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+
+  /* Orders */
+  .tabs{display:flex; gap:6px; background:#EFEDE7; padding:4px; border-radius:100px; margin-bottom:18px;}
+  .tab{flex:1; text-align:center; padding:9px 0; border-radius:100px; font-size:13px; font-weight:600; cursor:pointer; color:var(--ink-soft);}
+  .tab.active{background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+  .order-card{border:1px solid var(--border); border-radius:var(--r-m); padding:15px; background:var(--surface); margin-bottom:10px;}
+  .order-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+  .order-title{font-weight:600; font-size:14px;}
+  .order-meta{font-size:12px; color:var(--ink-faint);}
+  .order-foot{display:flex; align-items:center; justify-content:space-between; margin-top:10px;}
+  .order-amt{font-family:'IBM Plex Mono'; font-weight:500; font-size:13.5px;}
+
+  /* Wallet */
+  .balance-card{background:var(--ink); color:#fff; border-radius:var(--r-xl); padding:22px; margin-bottom:20px;}
+  .balance-label{font-size:12px; color:rgba(255,255,255,0.5); font-weight:600; text-transform:uppercase; letter-spacing:.04em;}
+  .balance-amt{font-family:'Space Grotesk'; font-size:30px; font-weight:700; margin-top:6px;}
+  .wallet-row{display:flex; align-items:center; gap:14px; padding:15px 0; border-bottom:1px solid var(--border); cursor:pointer;}
+  .wallet-row:last-child{border-bottom:none;}
+  .wallet-row-icon{width:36px; height:36px; border-radius:10px; background:#EFEDE7; display:flex; align-items:center; justify-content:center; font-size:16px;}
+
+  /* Profile */
+  .profile-head{display:flex; align-items:center; gap:14px; padding:6px 0 22px 0;}
+  .profile-avatar{width:56px; height:56px; border-radius:50%; background:var(--ink); color:#fff; display:flex; align-items:center; justify-content:center; font-family:'Space Grotesk'; font-weight:700; font-size:19px;}
+  .profile-name{font-family:'Space Grotesk'; font-weight:600; font-size:17px;}
+  .profile-sub{font-size:12.5px; color:var(--ink-faint); margin-top:2px;}
+  .settings-group{margin-bottom:18px;}
+  .settings-label{font-size:11.5px; font-weight:700; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;}
+  .settings-row{display:flex; align-items:center; justify-content:space-between; padding:13px 0; border-bottom:1px solid var(--border); cursor:pointer; font-size:14px; font-weight:500;}
+  .settings-row:last-child{border-bottom:none;}
+
+  /* Empty state */
+  .empty-wrap{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px;}
+  .empty-emoji{font-size:30px; margin-bottom:14px;}
+  .empty-title{font-family:'Space Grotesk'; font-weight:600; font-size:16px; margin-bottom:6px;}
+  .empty-sub{font-size:13px; color:var(--ink-faint); margin-bottom:20px; max-width:220px; line-height:1.5;}
+
+  /* Toast */
+  #toast{
+    position:absolute; left:20px; right:20px; bottom:20px; z-index:50;
+    background:var(--ink); color:#fff; padding:13px 16px; border-radius:var(--r-m);
+    font-size:13px; font-weight:500; text-align:center;
+    transform:translateY(20px); opacity:0; pointer-events:none; transition:all .25s ease;
+  }
+  #toast.show{transform:translateY(0); opacity:1;}
+
+  .note-caption{text-align:center; font-size:12px; color:var(--ink-faint); margin-top:14px; max-width:390px;}
+
+  /* Login */
+  .login-wrap{flex:1; display:flex; flex-direction:column; justify-content:center; padding:32px;}
+  .login-headline{font-family:'Space Grotesk'; font-weight:700; font-size:26px; margin:20px 0 6px 0;}
+  .login-sub{font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin-bottom:26px;}
+  .banner{background:var(--amber-soft); color:#8A5E12; border-radius:var(--r-m); padding:12px 14px; font-size:12.5px; line-height:1.5; margin:0 20px 14px 20px;}
+
+  /* When installed/launched as a standalone app: drop the decorative phone bezel and fill the real screen */
+  @media (display-mode: standalone), (display-mode: fullscreen){
+    body{padding:0; align-items:stretch;}
+    .device{width:100%; max-width:100%; border-radius:0; padding:0; box-shadow:none; background:var(--bg);}
+    .phone{width:100%; height:100vh; max-height:100vh; border-radius:0;}
+    .statusbar{padding-top:env(safe-area-inset-top,0px); height:calc(30px + env(safe-area-inset-top,0px));}
+    .note-caption{display:none;}
+  }
+  /* Native app (Capacitor on Android/iOS) — same treatment as standalone PWA */
+  html.native-app body{padding:0; align-items:stretch;}
+  html.native-app .device{width:100%; max-width:100%; border-radius:0; padding:0; box-shadow:none; background:var(--bg);}
+  html.native-app .phone{width:100%; height:100vh; max-height:100vh; border-radius:0;}
+  html.native-app .statusbar{padding-top:env(safe-area-inset-top,0px); height:calc(30px + env(safe-area-inset-top,0px));}
+  html.native-app .note-caption{display:none;}
+</style>
+</head>
+<body>
+
+<div>
+  <div class="device">
+    <div class="phone">
+      <div class="statusbar">
+        <span>9:41</span>
+        <span class="mono" style="font-size:10px; letter-spacing:.06em;">MOTION</span>
+        <span>100%</span>
+      </div>
+      <div id="app"></div>
+      <div id="toast"></div>
+    </div>
+  </div>
+  <div class="note-caption">Interactive prototype — tap around. Nothing here is a real order or payment.</div>
+</div>
+
+<script>
+/* ---------------- ICONS ---------------- */
+const ICONS = {
+  home: `<svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5L12 4l8 7.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1V11.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+  explore: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.8"/><path d="M15 9l-2 5-5 2 2-5 5-2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>`,
+  orders: `<svg viewBox="0 0 24 24" fill="none"><rect x="4.5" y="6" width="15" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 6V5a3.5 3.5 0 0 1 7 0v1" stroke="currentColor" stroke-width="1.8"/></svg>`,
+  wallet: `<svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="6.5" width="17" height="12" rx="2.2" stroke="currentColor" stroke-width="1.8"/><path d="M16 12.5h2.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M3.5 9.5h17" stroke="currentColor" stroke-width="1.8"/></svg>`,
+  profile: `<svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8.3" r="3.3" stroke="currentColor" stroke-width="1.8"/><path d="M5 20c1-3.6 4-5.5 7-5.5s6 1.9 7 5.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  back: `<svg viewBox="0 0 24 24" fill="none" width="17" height="17"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  mic: `<svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="9" y="3" width="6" height="11" rx="3" stroke="white" stroke-width="1.6"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0" stroke="white" stroke-width="1.6" stroke-linecap="round"/><path d="M12 17.5V21" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>`,
+  arrow: `<svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  pin: `<svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M12 21s7-6.1 7-11.5A7 7 0 0 0 5 9.5C5 14.9 12 21 12 21Z" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="9.5" r="2.2" stroke="currentColor" stroke-width="1.7"/></svg>`,
+  clock: `<svg viewBox="0 0 24 24" fill="none" width="15" height="15"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="M12 8v4.3l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`,
+  note: `<svg viewBox="0 0 24 24" fill="none" width="15" height="15"><path d="M6 4h9l4 4v12H6V4Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 12h6M9 15.5h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+};
+
+/* ---------------- BACKEND (Supabase) ---------------- */
+const backendConfigured = !!(window.MOTION_CONFIG &&
+  window.MOTION_CONFIG.SUPABASE_URL &&
+  !window.MOTION_CONFIG.SUPABASE_URL.includes('PASTE_YOUR') &&
+  window.MOTION_CONFIG.SUPABASE_ANON_KEY &&
+  !window.MOTION_CONFIG.SUPABASE_ANON_KEY.includes('PASTE_YOUR'));
+
+let sb = null;
+if(backendConfigured){
+  try{
+    sb = supabase.createClient(window.MOTION_CONFIG.SUPABASE_URL, window.MOTION_CONFIG.SUPABASE_ANON_KEY);
+  } catch(e){
+    console.error('Could not connect to backend:', e);
+  }
+}
+
+/* ---------------- STATE ---------------- */
+const state = {
+  session: null,
+  authEmail: '',
+  authMessage: '',
+  screen: 'home',
+  presetType: null,
+  requestText: '',
+  address: 'No. 14 Admiralty Way, Lekki Phase 1',
+  time: '',
+  notes: '',
+  tasks: [],
+  breakdown: [],
+  total: 0,
+  deadline: '',
+  paymentMethod: 'card',
+  orderId: null,
+  ordersTab: 'active',
+  orders: [
+    {
+      id: 'MOT-10291', status:'active', createdLabel:'Today',
+      tasks: [{icon:'🛒', title:'Grocery shopping', subtitle:'Shoprite'}],
+      breakdown: [{label:'Groceries', amount:18000},{label:'MOTION service fee', amount:500}],
+      total: 18500, deadline:'Before 6:00 PM', eta:'Arriving around 5:40 PM', store:'Shoprite',
+      currentIndex: 1,
+    },
+  ],
+  completedOrders: [
+    { id:'MOT-10230', type:'Grocery shopping', date:'Yesterday', amount:18400, emoji:'🛒' },
+    { id:'MOT-10184', type:'Laundry', date:'3 days ago', amount:3500, emoji:'🧺' },
+    { id:'MOT-10122', type:'Pick up & deliver', date:'Last week', amount:2000, emoji:'📦' },
+  ],
+};
+
+const QUICK_PRESETS = {
+  shop: 'Get my groceries from Shoprite and bring them home.',
+  pickup: 'Pick up a package from Ikoyi and deliver it to my office in Victoria Island.',
+  laundry: 'Pick up my laundry, wash it, and bring it back before 6 PM.',
+};
+
+/* ---------------- HELPERS ---------------- */
+function naira(n){ return '₦' + n.toLocaleString('en-NG'); }
+function el(html){ return html; }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+async function parseRequestWithAI(text, presetType){
+  if(!sb){ return parseRequest(text, presetType); }
+  try{
+    const { data, error } = await sb.functions.invoke('parse-request', {
+      body: { requestText: text },
+    });
+    if(error || !data || !Array.isArray(data.tasks) || data.tasks.length === 0){
+      throw new Error(error?.message || 'AI parsing unavailable');
+    }
+    const breakdown = [];
+    let total = 0;
+    data.tasks.forEach(t => {
+      let amount = 5000;
+      if(t.title === 'Grocery shopping') amount = 18000;
+      else if(t.title === 'Laundry') amount = 3500;
+      else if(t.title === 'Delivery') amount = 2000;
+      breakdown.push({ label: t.title === 'Delivery' ? 'Delivery' : t.title, amount });
+      total += amount;
+    });
+    breakdown.push({ label: 'MOTION service fee', amount: 500 });
+    total += 500;
+    return { tasks: data.tasks, breakdown, total, deadline: data.deadline || 'As soon as possible' };
+  } catch(e){
+    console.warn('AI parsing failed, using fallback parser:', e);
+    return parseRequest(text, presetType);
+  }
+}
+
+function parseRequest(text, presetType){
+  const t = (text || '').toLowerCase();
+  const tasks = []; const breakdown = []; let total = 0;
+
+  const hasGrocery = presetType === 'shop' || /grocer|shoprite|spar|market|store\b/.test(t);
+  const hasLaundry = presetType === 'laundry' || /laundry|wash|dry.?clean/.test(t);
+  const hasPickup  = presetType === 'pickup'  || /pick ?up|deliver|drop off|bring|move|package|parcel/.test(t);
+
+  if(hasGrocery){
+    let store = 'a nearby store';
+    if(/shoprite/.test(t)) store = 'Shoprite';
+    else if(/spar/.test(t)) store = 'SPAR';
+    tasks.push({icon:'🛒', title:'Grocery shopping', subtitle:store});
+    breakdown.push({label:'Groceries', amount:18000}); total += 18000;
+  }
+  if(hasLaundry){
+    tasks.push({icon:'🧺', title:'Laundry', subtitle:'Pickup → Wash → Return'});
+    breakdown.push({label:'Laundry', amount:3500}); total += 3500;
+  }
+  if(hasPickup || tasks.length > 0){
+    tasks.push({icon:'🛵', title:'Delivery', subtitle:'Everything → Home'});
+    breakdown.push({label:'Delivery', amount:2000}); total += 2000;
+  }
+  if(tasks.length === 0){
+    tasks.push({icon:'✅', title:'Errand', subtitle: text ? (text.length>50? text.slice(0,50)+'…': text) : 'General errand'});
+    breakdown.push({label:'Errand', amount:5000}); total += 5000;
+  }
+
+  let deadline = 'As soon as possible';
+  const m = t.match(/(?:before|by)\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i);
+  if(m) deadline = 'Before ' + m[1].toUpperCase().replace(/\s+/g,' ');
+
+  breakdown.push({label:'MOTION service fee', amount:500}); total += 500;
+
+  return { tasks, breakdown, total, deadline };
+}
+
+function buildTimeline(tasks, currentIndex){
+  const stages = ['Request confirmed', ...tasks.map(t=>t.title), 'Completed'];
+  return stages.map((label, i) => {
+    let status = 'pending';
+    if(i < currentIndex + 1) status = 'done';
+    if(i === currentIndex + 1) status = 'current';
+    return { label, status };
+  });
+}
+
+/* ---------------- ACTIONS ---------------- */
+const actions = {
+  nav(screen){ state.screen = screen; render(); },
+  quick(type){
+    state.presetType = type;
+    state.requestText = QUICK_PRESETS[type];
+    state.screen = 'create';
+    render();
+  },
+  useExample(){
+    state.requestText = 'Get groceries from Shoprite, pick up my laundry, and bring everything home before 6 PM.';
+    render();
+  },
+  async submit(){
+    const ta = document.getElementById('requestInput');
+    const text = (ta ? ta.value : state.requestText || '').trim();
+    if(!text){ showToast("Tell us what you need first."); return; }
+    state.requestText = text;
+    const addrInput = document.getElementById('addressInput');
+    const timeInput = document.getElementById('timeInput');
+    const notesInput = document.getElementById('notesInput');
+    if(addrInput) state.address = addrInput.value || state.address;
+    if(timeInput) state.time = timeInput.value || '';
+    if(notesInput) state.notes = notesInput.value || '';
+
+    state.screen = 'interpreting';
+    render();
+    const r = await parseRequestWithAI(state.requestText, state.presetType);
+    state.tasks = r.tasks; state.breakdown = r.breakdown; state.total = r.total; state.deadline = r.deadline;
+    state.screen = 'interpretation';
+    render();
+  },
+  editRequest(){ state.screen = 'create'; render(); },
+  confirmInterpretation(){ state.screen = 'quote'; render(); },
+  toPayment(){ state.screen = 'payment'; render(); },
+  selectPayment(method){ state.paymentMethod = method; render(); },
+  pay(){
+    state.screen = 'processingPayment';
+    render();
+    setTimeout(async () => {
+      const orderData = { tasks: state.tasks, breakdown: state.breakdown, total: state.total, deadline: state.deadline };
+
+      if(sb && state.session){
+        const saved = await saveOrder(orderData);
+        if(saved){
+          state.orderId = saved.id;
+          await loadOrders();
+        } else {
+          state.orderId = 'MOT-' + (10000 + Math.floor(Math.random() * 89000));
+        }
+      } else {
+        const id = 'MOT-' + (10000 + Math.floor(Math.random() * 89000));
+        state.orderId = id;
+        state.orders.unshift({
+          id, status:'active', createdLabel:'Just now',
+          tasks: state.tasks, breakdown: state.breakdown, total: state.total, deadline: state.deadline,
+          eta: 'Arriving ' + state.deadline.replace('Before ', 'before '),
+          store: (state.tasks.find(t=>t.title==='Grocery shopping')||{}).subtitle || null,
+          currentIndex: 0,
+        });
+      }
+      state.screen = 'success';
+      render();
+    }, 1400);
+  },
+  track(id){ state.trackingId = id || state.orderId; state.screen = 'tracking'; render(); },
+  backHome(){
+    state.presetType = null; state.requestText = ''; state.tasks = []; state.breakdown = []; state.total = 0;
+    state.screen = 'home'; render();
+  },
+  setOrdersTab(tab){ state.ordersTab = tab; render(); },
+  reorder(label){
+    state.presetType = null;
+    state.requestText = 'Same as before: ' + label + '.';
+    state.screen = 'create';
+    render();
+    showToast('Details filled in — review and continue.');
+  },
+  toast(msg){ showToast(msg); },
+  contactRider(){ showToast('Calling Daniel…'); },
+  getHelp(){ showToast('Connecting you to MOTION support…'); },
+  createFromEmpty(){ state.screen = 'home'; render(); setTimeout(()=>document.getElementById('requestInput')?.focus(), 300); },
+
+  updateEmail(){ /* handled via input listener below */ },
+  async sendMagicLink(){
+    if(!sb){ showToast('Backend not connected yet.'); return; }
+    const input = document.getElementById('emailInput');
+    const email = (input ? input.value : '').trim();
+    if(!email || !email.includes('@')){ showToast('Enter a valid email first.'); return; }
+    state.authEmail = email;
+    state.authMessage = 'Sending link…';
+    render();
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.href }
+    });
+    state.authMessage = error ? ('Something went wrong: ' + error.message) : `Check ${email} for a sign-in link.`;
+    render();
+  },
+  async logout(){
+    if(sb) await sb.auth.signOut();
+    state.session = null;
+    state.screen = 'login';
+    render();
+  },
+};
+
+/* ---------------- SCREENS ---------------- */
+function screenHome(){
+  const active = state.orders.find(o => o.status === 'active');
+  return `
+  <div class="screen">
+    ${!backendConfigured ? `<div class="banner" style="margin-top:14px;">Demo mode — orders won't be saved. Connect a backend in config.js to make this real.</div>` : ''}
+    <div class="pad">
+      <div class="brandrow">
+        <div>
+          <div class="logo">MOTION</div>
+          <div class="tagline">Keep Life Moving.</div>
+        </div>
+        <div class="avatar" data-action="nav" data-arg="profile" style="cursor:pointer;">A</div>
+      </div>
+
+      <div class="greet">Good morning 👋</div>
+      <h1 class="headline">What can we help you get done today?</h1>
+
+      <div class="composer">
+        <textarea id="requestInput" placeholder="Tell us what you need...">${escapeHtml(state.requestText)}</textarea>
+        <div class="hint" data-action="useExample" style="cursor:pointer;">e.g. "Get groceries, pick up my laundry, and deliver everything before 6 PM."</div>
+        <div class="composer-footer">
+          <div class="mic" data-action="toast" data-msg="Listening… (voice input simulated)">${ICONS.mic}</div>
+          <button class="composer-cta" data-action="submit">Get it done ${ICONS.arrow}</button>
+        </div>
+      </div>
+
+      <div class="section-title">Quick actions</div>
+      <div class="quick-grid">
+        <div class="quick-card" data-action="quick" data-arg="shop">
+          <span class="quick-emoji">🛍️</span>
+          <div class="quick-title">Shop for me</div>
+          <div class="quick-sub">Get anything from a nearby store</div>
+        </div>
+        <div class="quick-card" data-action="quick" data-arg="pickup">
+          <span class="quick-emoji">📦</span>
+          <div class="quick-title">Pick up & deliver</div>
+          <div class="quick-sub">Move something from A to B</div>
+        </div>
+        <div class="quick-card" data-action="quick" data-arg="laundry">
+          <span class="quick-emoji">🧺</span>
+          <div class="quick-title">Laundry</div>
+          <div class="quick-sub">Pickup, wash & return</div>
+        </div>
+      </div>
+
+      ${active ? `
+      <div class="section-title">Your active requests</div>
+      <div class="card active-card">
+        <div class="active-top">
+          <div class="active-title">${active.tasks[0]?.title || 'Request'}</div>
+          <span class="badge badge--coral"><span class="dot"></span>${active.currentIndex===0?'Rider is shopping':'In progress'}</span>
+        </div>
+        <div class="progressbar"><div style="width:${18 + active.currentIndex*30}%;"></div></div>
+        <div class="active-meta">${active.store ? active.store + ' · ' : ''}${active.eta || ''}</div>
+        <div class="active-foot">
+          <span class="mono" style="font-size:11.5px; color:var(--ink-faint);">${active.id}</span>
+          <button class="btn btn-primary btn-sm" data-action="track" data-arg="${active.id}">Track ${ICONS.arrow}</button>
+        </div>
+      </div>` : ''}
+
+      <div class="section-title">Recent activity</div>
+      <div class="card">
+        ${state.completedOrders.map(o => `
+        <div class="activity-row" data-action="toast" data-msg="${o.type} — ${o.date} — ${naira(o.amount)}">
+          <div class="activity-icon">${o.emoji}</div>
+          <div>
+            <div class="activity-title">${o.type} completed</div>
+            <div class="activity-sub">${o.date} · ${naira(o.amount)}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <div style="height:8px;"></div>
+    </div>
+  </div>`;
+}
+
+function screenExplore(){
+  const cats = [
+    { emoji:'🛍️', title:'Shop for me', sub:'Any store, anything you need', soon:false, arg:'shop' },
+    { emoji:'📦', title:'Pick up & deliver', sub:'Move something from A to B', soon:false, arg:'pickup' },
+    { emoji:'🧺', title:'Laundry', sub:'Pickup, wash & return', soon:false, arg:'laundry' },
+    { emoji:'🥗', title:'Food', sub:'Meals from local restaurants', soon:true },
+    { emoji:'🧹', title:'Home services', sub:'Cleaning, repairs & more', soon:true },
+    { emoji:'🏃', title:'Errands', sub:'Queueing, paperwork, and more', soon:true },
+  ];
+  return `
+  <div class="screen">
+    <div class="pad">
+      <h1 class="topbar-title" style="font-size:20px; margin:6px 0 4px 0;">Explore</h1>
+      <p style="color:var(--ink-soft); font-size:13.5px; margin:0 0 18px 0;">Everything MOTION can take off your plate.</p>
+    </div>
+    <div class="content" style="padding-top:0;">
+      ${cats.map(c => `
+        <div class="cat-card ${c.soon?'soon':''}" ${c.soon ? '' : `data-action="quick" data-arg="${c.arg}"`}>
+          <div class="cat-emoji">${c.emoji}</div>
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:14.5px;">${c.title}</div>
+            <div style="font-size:12px; color:var(--ink-faint); margin-top:2px;">${c.sub}</div>
+          </div>
+          ${c.soon ? '<span class="badge badge--muted">Coming soon</span>' : ICONS.arrow}
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function screenOrders(){
+  const active = state.orders.filter(o => o.status === 'active');
+  const list = state.ordersTab === 'active' ? active : state.completedOrders;
+  return `
+  <div class="screen">
+    <div class="pad">
+      <h1 class="topbar-title" style="font-size:20px; margin:6px 0 16px 0;">Orders</h1>
+      <div class="tabs">
+        <div class="tab ${state.ordersTab==='active'?'active':''}" data-action="setOrdersTab" data-arg="active">Active</div>
+        <div class="tab ${state.ordersTab==='completed'?'active':''}" data-action="setOrdersTab" data-arg="completed">Completed</div>
+      </div>
+    </div>
+    <div class="content" style="padding-top:0;">
+      ${list.length === 0 ? `
+        <div class="empty-wrap" style="padding-top:40px;">
+          <div class="empty-emoji">📭</div>
+          <div class="empty-title">Nothing here yet.</div>
+          <div class="empty-sub">Your active requests will appear here.</div>
+          <button class="btn btn-coral btn-sm" data-action="createFromEmpty">Create a request</button>
+        </div>
+      ` : state.ordersTab === 'active' ? active.map(o => `
+        <div class="order-card">
+          <div class="order-top">
+            <div class="order-title">${o.tasks[0]?.title || 'Request'}</div>
+            <span class="badge badge--coral">In progress</span>
+          </div>
+          <div class="order-meta">${o.id} · ${o.createdLabel}</div>
+          <div class="order-foot">
+            <span class="order-amt">${naira(o.total)}</span>
+            <button class="btn btn-primary btn-sm" data-action="track" data-arg="${o.id}">Track ${ICONS.arrow}</button>
+          </div>
+        </div>
+      `).join('') : state.completedOrders.map(o => `
+        <div class="order-card">
+          <div class="order-top">
+            <div class="order-title">${o.type}</div>
+            <span class="badge badge--pine">Completed</span>
+          </div>
+          <div class="order-meta">${o.id} · ${o.date}</div>
+          <div class="order-foot">
+            <span class="order-amt">${naira(o.amount)}</span>
+            <button class="btn btn-ghost btn-sm" data-action="reorder" data-arg="${o.type}">Order again</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  </div>`;
+}
+
+function screenWallet(){
+  return `
+  <div class="screen">
+    <div class="pad">
+      <h1 class="topbar-title" style="font-size:20px; margin:6px 0 18px 0;">Wallet</h1>
+      <div class="balance-card">
+        <div class="balance-label">MOTION Wallet</div>
+        <div class="balance-amt">₦0.00</div>
+      </div>
+    </div>
+    <div class="content" style="padding-top:0;">
+      <div class="card">
+        <div class="wallet-row" data-action="toast" data-msg="Adding money — simulated in this prototype.">
+          <div class="wallet-row-icon">➕</div>
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:14px;">Add money</div>
+            <div style="font-size:11.5px; color:var(--ink-faint);">Top up your wallet balance</div>
+          </div>
+          ${ICONS.arrow}
+        </div>
+        <div class="wallet-row" data-action="toast" data-msg="No transactions yet.">
+          <div class="wallet-row-icon">📜</div>
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:14px;">Transactions</div>
+            <div style="font-size:11.5px; color:var(--ink-faint);">Your wallet history</div>
+          </div>
+          ${ICONS.arrow}
+        </div>
+        <div class="wallet-row" data-action="toast" data-msg="No refunds pending.">
+          <div class="wallet-row-icon">↩️</div>
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:14px;">Refunds</div>
+            <div style="font-size:11.5px; color:var(--ink-faint);">Track money coming back to you</div>
+          </div>
+          ${ICONS.arrow}
+        </div>
+        <div class="wallet-row" data-action="toast" data-msg="1 card on file.">
+          <div class="wallet-row-icon">💳</div>
+          <div style="flex:1;">
+            <div style="font-weight:600; font-size:14px;">Payment methods</div>
+            <div style="font-size:11.5px; color:var(--ink-faint);">Cards, transfer & wallet</div>
+          </div>
+          ${ICONS.arrow}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function screenProfile(){
+  const rows1 = ['Saved addresses', 'Payment methods', 'Notifications'];
+  const rows2 = ['Security', 'Help & support', 'Terms', 'Privacy'];
+  return `
+  <div class="screen">
+    <div class="pad">
+      <h1 class="topbar-title" style="font-size:20px; margin:6px 0 4px 0;">Profile</h1>
+    </div>
+    <div class="content" style="padding-top:0;">
+      <div class="profile-head">
+        <div class="profile-avatar">${(state.session?.user?.email || 'A')[0].toUpperCase()}</div>
+        <div>
+          <div class="profile-name">${state.session ? 'Signed in' : 'Ada Okonkwo (demo)'}</div>
+          <div class="profile-sub">${state.session?.user?.email || 'Not connected to a real account'}</div>
+        </div>
+      </div>
+      ${state.session ? `
+      <div class="settings-group">
+        <div class="card" style="padding:0 16px;">
+          <div class="settings-row" data-action="logout" style="color:var(--coral);">Log out ${ICONS.arrow}</div>
+        </div>
+      </div>` : ''}
+      <div class="settings-group">
+        <div class="settings-label">Account</div>
+        <div class="card" style="padding:0 16px;">
+          ${rows1.map(r => `<div class="settings-row" data-action="toast" data-msg="${r} — coming soon in this prototype.">${r} ${ICONS.arrow}</div>`).join('')}
+        </div>
+      </div>
+      <div class="settings-group">
+        <div class="settings-label">Support</div>
+        <div class="card" style="padding:0 16px;">
+          ${rows2.map(r => `<div class="settings-row" data-action="toast" data-msg="${r} — coming soon in this prototype.">${r} ${ICONS.arrow}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function screenLogin(){
+  return `
+  <div class="screen">
+    <div class="login-wrap">
+      <div class="logo">MOTION</div>
+      <div class="login-headline">Keep Life Moving.</div>
+      <div class="login-sub">Enter your email — we'll send you a link to sign in. No password needed.</div>
+      <div class="field" style="margin-bottom:14px;">
+        <input id="emailInput" type="email" placeholder="you@email.com" value="${escapeHtml(state.authEmail)}" />
+      </div>
+      <button class="btn btn-coral" data-action="sendMagicLink">Send sign-in link</button>
+      ${state.authMessage ? `<div style="text-align:center; font-size:12.5px; color:var(--ink-soft); margin-top:14px;">${escapeHtml(state.authMessage)}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function screenCreate(){
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <div class="backbtn" data-action="nav" data-arg="home">${ICONS.back}</div>
+      <div class="topbar-title">What do you need?</div>
+    </div>
+    <div class="content">
+      <p style="color:var(--ink-soft); font-size:13.5px; line-height:1.5; margin:4px 0 18px 0;">Describe the outcome. MOTION handles the complexity.</p>
+
+      <div class="field-label">Your request</div>
+      <div class="field">
+        <textarea id="requestInput" placeholder="Describe what you need and where you need it.">${escapeHtml(state.requestText)}</textarea>
+        <div style="display:flex; justify-content:flex-end;">
+          <div class="mic" style="background:#EFEDE7;" data-action="toast" data-msg="Listening… (voice input simulated)">
+            <svg viewBox="0 0 24 24" fill="none" width="16" height="16"><rect x="9" y="3" width="6" height="11" rx="3" stroke="#1B1B20" stroke-width="1.6"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0" stroke="#1B1B20" stroke-width="1.6" stroke-linecap="round"/><path d="M12 17.5V21" stroke="#1B1B20" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="field-label">Address</div>
+      <div class="field field-row">
+        <span class="field-icon">${ICONS.pin}</span>
+        <input id="addressInput" value="${escapeHtml(state.address)}" placeholder="Saved address" />
+      </div>
+
+      <div class="field-label">Requested time</div>
+      <div class="field field-row">
+        <span class="field-icon">${ICONS.clock}</span>
+        <input id="timeInput" value="${escapeHtml(state.time)}" placeholder="e.g. Before 6:00 PM" />
+      </div>
+
+      <div class="field-label">Notes (optional)</div>
+      <div class="field field-row">
+        <span class="field-icon">${ICONS.note}</span>
+        <input id="notesInput" value="${escapeHtml(state.notes)}" placeholder="Gate code, preferences, anything else" />
+      </div>
+    </div>
+    <div class="sticky-foot">
+      <button class="btn btn-coral" data-action="submit">Continue ${ICONS.arrow}</button>
+    </div>
+  </div>`;
+}
+
+function screenInterpreting(){
+  return `
+  <div class="screen">
+    <div class="loader-wrap">
+      <div class="spinner"></div>
+      <div class="loader-text">MOTION is figuring it out…</div>
+    </div>
+  </div>`;
+}
+
+function screenInterpretation(){
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <div class="backbtn" data-action="editRequest">${ICONS.back}</div>
+      <div class="topbar-title">Here's what we'll handle</div>
+    </div>
+    <div class="content">
+      <div class="card" style="margin-top:6px;">
+        ${state.tasks.map(t => `
+          <div class="task-line">
+            <div class="thread"></div>
+            <div class="task-icon">${t.icon}</div>
+            <div class="task-body">
+              <div class="task-title">${t.title}</div>
+              <div class="task-sub">${t.subtitle}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="deadline-row">${ICONS.clock}<span>${state.deadline}</span></div>
+      <p style="text-align:center; font-weight:600; font-size:14px; margin:22px 0 0 0;">Everything look good?</p>
+    </div>
+    <div class="sticky-foot">
+      <button class="btn btn-coral" data-action="confirmInterpretation">Confirm request</button>
+      <button class="btn btn-ghost" data-action="editRequest">Edit</button>
+    </div>
+  </div>`;
+}
+
+function screenQuote(){
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <div class="backbtn" data-action="nav" data-arg="interpretation">${ICONS.back}</div>
+      <div class="topbar-title">Your MOTION request</div>
+    </div>
+    <div class="content">
+      <div class="card" style="margin-top:6px;">
+        ${state.breakdown.map(b => `
+          <div class="price-row"><span class="label">${b.label}</span><span class="amt">${naira(b.amount)}</span></div>
+        `).join('')}
+        <hr class="hr" />
+        <div class="total-row"><span class="label">Total</span><span class="amt">${naira(state.total)}</span></div>
+      </div>
+      <p class="note">Final price may change if requested items are unavailable or substituted. You'll be notified before additional charges.</p>
+    </div>
+    <div class="sticky-foot">
+      <button class="btn btn-coral" data-action="toPayment">Continue to payment ${ICONS.arrow}</button>
+    </div>
+  </div>`;
+}
+
+function screenPayment(){
+  const methods = [
+    { id:'card', emoji:'💳', title:'Card', sub:'•••• 4242' },
+    { id:'transfer', emoji:'🏦', title:'Bank transfer', sub:'Pay via your bank app' },
+    { id:'wallet', emoji:'👛', title:'Wallet', sub:'Balance: ₦0.00' },
+  ];
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <div class="backbtn" data-action="nav" data-arg="quote">${ICONS.back}</div>
+      <div class="topbar-title">How would you like to pay?</div>
+    </div>
+    <div class="content">
+      ${methods.map(m => `
+        <div class="pay-option ${state.paymentMethod===m.id?'selected':''}" data-action="selectPayment" data-arg="${m.id}">
+          <div class="pay-icon">${m.emoji}</div>
+          <div>
+            <div class="pay-title">${m.title}</div>
+            <div class="pay-sub">${m.sub}</div>
+          </div>
+          <div class="pay-radio"></div>
+        </div>
+      `).join('')}
+      <div class="card" style="margin-top:16px;">
+        <div class="total-row" style="padding-top:0;"><span class="label">Order total</span><span class="amt" style="font-size:19px;">${naira(state.total)}</span></div>
+      </div>
+    </div>
+    <div class="sticky-foot">
+      <button class="btn btn-coral" data-action="pay">Pay ${naira(state.total)}</button>
+    </div>
+  </div>`;
+}
+
+function screenProcessingPayment(){
+  return `
+  <div class="screen">
+    <div class="loader-wrap">
+      <div class="spinner"></div>
+      <div class="loader-text">Processing payment…</div>
+    </div>
+  </div>`;
+}
+
+function screenSuccess(){
+  return `
+  <div class="screen">
+    <div class="success-wrap">
+      <div class="check">
+        <svg viewBox="0 0 24 24" fill="none" width="28" height="28"><path d="M5 13l5 5L19 7" stroke="white" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div class="success-headline">MOTION is on it.</div>
+      <div class="success-sub">Your request has been confirmed. We'll keep you updated as everything moves.</div>
+      <div class="order-chip">
+        <div class="price-row"><span class="label">Request</span><span class="amt mono">${state.orderId || ''}</span></div>
+        <div class="price-row"><span class="label">Estimated completion</span><span class="amt" style="font-family:'Inter'; font-weight:600;">${state.deadline}</span></div>
+      </div>
+      <button class="btn btn-coral" data-action="track" data-arg="${state.orderId}" style="margin-bottom:10px;">Track request ${ICONS.arrow}</button>
+      <button class="btn btn-ghost" data-action="backHome">Back home</button>
+    </div>
+  </div>`;
+}
+
+function screenTracking(){
+  const order = state.orders.find(o => o.id === state.trackingId) || state.orders[0];
+  const timeline = buildTimeline(order.tasks, order.currentIndex);
+  return `
+  <div class="screen">
+    <div class="topbar">
+      <div class="backbtn" data-action="nav" data-arg="home">${ICONS.back}</div>
+      <div class="topbar-title">Your request</div>
+    </div>
+    <div class="content">
+      <div class="map-area">
+        <svg viewBox="0 0 390 190" preserveAspectRatio="none">
+          <path d="M0 140 C 80 110, 140 160, 200 120 S 320 60, 390 90" stroke="#C9C2AE" stroke-width="3" fill="none" stroke-dasharray="1 10" stroke-linecap="round"/>
+        </svg>
+        <div class="map-pin"></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px;">MOTION is handling your request</div>
+      <div class="card">
+        ${timeline.map(s => `
+          <div class="timeline-item">
+            <div class="tl-mark ${s.status}">
+              ${s.status==='done' ? '<svg viewBox="0 0 24 24" width="10" height="10" fill="none"><path d="M5 13l4 4L19 7" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+            </div>
+            <div class="tl-label ${s.status}">${s.label}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div class="card" style="margin-top:14px;">
+        <div class="price-row" style="padding-top:0;"><span class="label">Estimated arrival</span><span class="amt" style="font-family:'Inter'; font-weight:600;">${order.eta || order.deadline}</span></div>
+        <hr class="hr" />
+        <div class="rider-card">
+          <div class="rider-avatar">D</div>
+          <div style="flex:1;">
+            <div class="rider-name">Daniel</div>
+            <div class="rider-meta">⭐ 4.9 · Honda motorbike</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:14px;">
+        <button class="btn btn-ghost btn-sm" style="flex:1;" data-action="contactRider">Contact rider</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1;" data-action="getHelp">Get help</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+const BOTTOM_TABS = ['home','explore','orders','wallet','profile'];
+function bottomNav(){
+  if(!BOTTOM_TABS.includes(state.screen)) return '';
+  const items = [
+    {id:'home', label:'Home', icon:ICONS.home},
+    {id:'explore', label:'Explore', icon:ICONS.explore},
+    {id:'orders', label:'Orders', icon:ICONS.orders},
+    {id:'wallet', label:'Wallet', icon:ICONS.wallet},
+    {id:'profile', label:'Profile', icon:ICONS.profile},
+  ];
+  return `<div class="bottomnav">
+    ${items.map(i => `
+      <div class="navitem ${state.screen===i.id?'active':''}" data-action="nav" data-arg="${i.id}">
+        ${i.icon}<span>${i.label}</span>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function escapeHtml(str){
+  return (str || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const SCREENS = {
+  login: screenLogin,
+  home: screenHome, explore: screenExplore, orders: screenOrders, wallet: screenWallet, profile: screenProfile,
+  create: screenCreate, interpreting: screenInterpreting, interpretation: screenInterpretation,
+  quote: screenQuote, payment: screenPayment, processingPayment: screenProcessingPayment,
+  success: screenSuccess, tracking: screenTracking,
+};
+
+/* ---------------- REAL BACKEND: load & save orders ---------------- */
+function formatDateLabel(iso){
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now - d) / (1000*60*60*24));
+  if(diffDays <= 0) return 'Today';
+  if(diffDays === 1) return 'Yesterday';
+  if(diffDays < 7) return diffDays + ' days ago';
+  return 'Last week';
+}
+function emojiForTasks(tasks){
+  if(!tasks || !tasks[0]) return '✅';
+  return tasks[0].icon || '✅';
+}
+
+async function loadOrders(){
+  if(!sb || !state.session) return;
+  const { data, error } = await sb
+    .from('orders')
+    .select('*')
+    .eq('user_id', state.session.user.id)
+    .order('created_at', { ascending: false });
+  if(error){ showToast('Could not load orders: ' + error.message); return; }
+
+  state.orders = (data || []).filter(r => r.status === 'active').map(r => ({
+    id: r.id, status: 'active', createdLabel: formatDateLabel(r.created_at),
+    tasks: r.tasks, breakdown: r.breakdown, total: r.total, deadline: r.deadline,
+    eta: 'Arriving ' + (r.deadline || 'soon').toLowerCase(),
+    store: (r.tasks || []).find(t => t.title === 'Grocery shopping')?.subtitle || null,
+    currentIndex: 0,
+  }));
+
+  state.completedOrders = (data || []).filter(r => r.status === 'completed').map(r => ({
+    id: r.id, type: (r.tasks && r.tasks[0]?.title) || 'Request',
+    date: formatDateLabel(r.created_at), amount: r.total, emoji: emojiForTasks(r.tasks),
+  }));
+
+  render();
+}
+
+async function saveOrder(order){
+  if(!sb || !state.session) return null;
+  const { data, error } = await sb.from('orders').insert({
+    user_id: state.session.user.id,
+    request_text: state.requestText,
+    address: state.address,
+    tasks: order.tasks, breakdown: order.breakdown, total: order.total, deadline: order.deadline,
+    status: 'active',
+  }).select().single();
+  if(error){ showToast('Could not save order: ' + error.message); return null; }
+  return data;
+}
+
+async function initAuth(){
+  const { data } = await sb.auth.getSession();
+  state.session = data.session;
+  if(!state.session){ state.screen = 'login'; }
+  render();
+  if(state.session) loadOrders();
+
+  sb.auth.onAuthStateChange((event, session) => {
+    state.session = session;
+    if(session){
+      if(state.screen === 'login') state.screen = 'home';
+      loadOrders();
+    } else {
+      state.screen = 'login';
+      render();
+    }
+  });
+}
+
+function render(){
+  const app = document.getElementById('app');
+  const fn = SCREENS[state.screen] || screenHome;
+  app.innerHTML = fn() + bottomNav();
+  const ta = document.getElementById('requestInput');
+  if(ta){
+    ta.addEventListener('input', () => { state.requestText = ta.value; });
+  }
+  const emailInput = document.getElementById('emailInput');
+  if(emailInput){
+    emailInput.addEventListener('input', () => { state.authEmail = emailInput.value; });
+  }
+}
+
+document.getElementById('app').addEventListener('click', (e) => {
+  const target = e.target.closest('[data-action]');
+  if(!target) return;
+  const action = target.dataset.action;
+  const arg = target.dataset.arg;
+  if(action === 'toast'){ showToast(target.dataset.msg); return; }
+  if(actions[action]) actions[action](arg);
+});
+
+if(sb){
+  initAuth();
+} else {
+  render();
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
